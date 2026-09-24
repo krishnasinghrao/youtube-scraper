@@ -820,11 +820,17 @@ button:disabled {
   display: none;
 }
 
-/* Smooth transitions */
-* {
+/* Smooth transitions for interactive elements */
+button,
+input,
+.format-item,
+.icon-btn,
+.tag,
+.description-toggle {
   transition:
     background-color 0.15s ease,
-    border-color 0.15s ease;
+    border-color 0.15s ease,
+    color 0.15s ease;
 }
 
 /* Focus visible for accessibility */

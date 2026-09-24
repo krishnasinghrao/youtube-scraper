@@ -214,11 +214,14 @@ headerUrlInput.addEventListener("keypress", (e) => {
 });
 
 // Click logo to go back home
-document.querySelector("header h1").addEventListener("click", goBackToHome);
+const headerLogo = document.querySelector("header h1");
+if (headerLogo) {
+  headerLogo.addEventListener("click", goBackToHome);
+}
 
 // Display video information
 /**
- * @param {any} data
+ * @param {VideoInfo} data
  */
 function displayVideoInfo(data) {
   // Security: Sanitize all displayed data
@@ -339,7 +342,7 @@ document
 
 // Display available formats
 /**
- * @param {any[]} formats
+ * @param {VideoFormat[]} formats
  */
 function displayFormats(formats) {
   formatsList.replaceChildren();
@@ -382,7 +385,7 @@ function displayFormats(formats) {
 
 /**
  * @param {string} title
- * @param {any[]} formats
+ * @param {VideoFormat[]} formats
  */
 function addFormatSection(title, formats) {
   const section = document.createElement("div");
@@ -400,7 +403,7 @@ function addFormatSection(title, formats) {
 
     const type = document.createElement("div");
     type.className = "format-type";
-    type.textContent = format.format_note || format.format;
+    type.textContent = format.format_note || format.format || "Standard";
 
     const details = document.createElement("div");
     details.className = "format-details";
@@ -432,7 +435,7 @@ function addFormatSection(title, formats) {
 // Select format
 /**
  * @param {HTMLElement} element
- * @param {any} format
+ * @param {VideoFormat} format
  */
 function selectFormat(element, format) {
   document.querySelectorAll(".format-item").forEach((item) => {
@@ -614,6 +617,7 @@ function formatBytes(bytes) {
  */
 function formatViews(count) {
   if (!count || count === 0) return "0 views";
+  if (count === 1) return "1 view";
   if (count >= 1000000) {
     return (count / 1000000).toFixed(1) + "M views";
   }
@@ -650,12 +654,19 @@ function formatUploadDate(dateString) {
   const day = parseInt(dateString.substring(6, 8), 10);
 
   const date = new Date(year, month - 1, day);
+  if (Number.isNaN(date.getTime())) {
+    return dateString;
+  }
   const now = new Date();
   const diffTime = Math.abs(now.getTime() - date.getTime());
   const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
 
-  if (diffDays < 7) {
-    return diffDays === 1 ? "1 day ago" : diffDays + " days ago";
+  if (diffDays <= 0) {
+    return "Today";
+  } else if (diffDays === 1) {
+    return "1 day ago";
+  } else if (diffDays < 7) {
+    return diffDays + " days ago";
   } else if (diffDays < 30) {
     const weeks = Math.floor(diffDays / 7);
     return weeks === 1 ? "1 week ago" : weeks + " weeks ago";
@@ -695,14 +706,33 @@ function hideVideoInfo() {
 
 // Add back button functionality
 function goBackToHome() {
-  document.getElementById("homeScreen").classList.remove("hidden");
-  document.getElementById("mainApp").classList.add("hidden");
-  urlInput.value = "";
-  headerUrlInput.value = "";
+  if (isDownloading) {
+    const confirmLeave = window.confirm(
+      "A download is currently in progress. Do you want to cancel the download and return to the home screen?",
+    );
+    if (!confirmLeave) {
+      return;
+    }
+    window.electronAPI.cancelDownload().catch(() => {});
+    isDownloading = false;
+    if (progressCleanup) {
+      progressCleanup();
+      progressCleanup = null;
+    }
+    downloadBtn.disabled = false;
+    cancelBtn.classList.add("hidden");
+  }
+
+  const homeScreen = document.getElementById("homeScreen");
+  const mainApp = document.getElementById("mainApp");
+  if (homeScreen) homeScreen.classList.remove("hidden");
+  if (mainApp) mainApp.classList.add("hidden");
+  if (urlInput) urlInput.value = "";
+  if (headerUrlInput) headerUrlInput.value = "";
   currentVideoUrl = null;
   currentThumbnailUrl = null;
   currentVideoTitle = "thumbnail";
-  downloadThumbnailBtn.disabled = true;
+  if (downloadThumbnailBtn) downloadThumbnailBtn.disabled = true;
   resetSelectedFormat();
   hideVideoInfo();
   hideError();

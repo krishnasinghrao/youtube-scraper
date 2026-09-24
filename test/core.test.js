@@ -11,15 +11,20 @@ const {
   MAX_THUMBNAIL_DOWNLOAD_BYTES,
   downloadBinary,
   downloadFile,
+  extractArchive,
   findExtractedExecutable,
+  getExecutableCandidates,
   getThumbnailExtension,
   isNewerVersion,
+  isSafeExternalUrl,
   isValidThumbnailUrl,
   isValidYouTubeUrl,
   normalizeOutputPath,
   parseVersionParts,
   prepareDependencyDirectory,
   sanitizeFilename,
+  toError,
+  validateWritableDirectory,
 } = require("../lib/core");
 
 /**
@@ -249,3 +254,94 @@ test("downloadBinary rejects invalid or non-HTTPS dependency URLs", async () => 
     /must use HTTPS/,
   );
 });
+
+test("downloadFile rejects invalid URLs and unsupported protocols", async () => {
+  await assert.rejects(
+    () => downloadFile("not a url", path.join(os.tmpdir(), "thumb.jpg")),
+    /Invalid thumbnail URL/,
+  );
+
+  await assert.rejects(
+    () => downloadFile("ftp://example.test/thumb.jpg", path.join(os.tmpdir(), "thumb.jpg")),
+    /Thumbnail download must use HTTP or HTTPS/,
+  );
+});
+
+test("validateWritableDirectory validates existing directory and rejects invalid inputs", async (t) => {
+  const root = await fs.promises.mkdtemp(path.join(os.tmpdir(), "scraper-val-"));
+  t.after(() => fs.promises.rm(root, { recursive: true, force: true }));
+
+  const validated = await validateWritableDirectory(root);
+  assert.equal(validated, root);
+
+  await assert.rejects(
+    () => validateWritableDirectory("   "),
+    /Invalid directory path provided/,
+  );
+
+  await assert.rejects(
+    () => validateWritableDirectory("relative/path"),
+    /Output path must be absolute/,
+  );
+
+  const file = path.join(root, "file.txt");
+  await fs.promises.writeFile(file, "hello");
+  await assert.rejects(
+    () => validateWritableDirectory(file),
+    /Output path is not a directory/,
+  );
+
+  const nonExistent = path.join(root, "does-not-exist");
+  await assert.rejects(
+    () => validateWritableDirectory(nonExistent),
+    /ENOENT/,
+  );
+});
+
+test("isSafeExternalUrl accepts https/http and rejects unsafe protocols", () => {
+  assert.equal(isSafeExternalUrl("https://github.com"), true);
+  assert.equal(isSafeExternalUrl("http://example.com"), true);
+  assert.equal(isSafeExternalUrl("ftp://example.com"), false);
+  assert.equal(isSafeExternalUrl("javascript:alert(1)"), false);
+  assert.equal(isSafeExternalUrl("file:///etc/passwd"), false);
+  assert.equal(isSafeExternalUrl("not a url"), false);
+});
+
+test("toError formats Error instances, error-like objects, and fallbacks", () => {
+  const original = new Error("native error");
+  assert.equal(toError(original, "fallback"), original);
+
+  const objWithError = { error: "custom error", details: "more details" };
+  const err1 = toError(objWithError, "fallback");
+  assert.equal(err1.message, "custom error\nmore details");
+
+  const objWithMessage = { message: "msg only" };
+  const err2 = toError(objWithMessage, "fallback");
+  assert.equal(err2.message, "msg only");
+
+  const fallbackErr = toError("string error", "default fallback");
+  assert.equal(fallbackErr.message, "default fallback");
+});
+
+test("getExecutableCandidates prioritizes user path, merges paths, and deduplicates", () => {
+  const candidates = getExecutableCandidates(
+    "tool",
+    ["/bin/tool", "/usr/bin/tool", "tool"],
+    "/custom/dir",
+  );
+
+  assert.equal(candidates[0], path.join("/custom/dir", "tool"));
+  assert.ok(candidates.includes("/bin/tool"));
+  assert.ok(candidates.includes("/usr/bin/tool"));
+  assert.ok(candidates.includes("tool"));
+  // Unique items check
+  assert.equal(new Set(candidates).size, candidates.length);
+});
+
+test("extractArchive rejects unsupported archive formats", async () => {
+  await assert.rejects(
+    () => extractArchive("file.rar", "/tmp", "tool"),
+    /Unsupported dependency archive format/,
+  );
+});
+

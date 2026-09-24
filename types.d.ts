@@ -1,7 +1,46 @@
 // Type definitions for the Electron app
 
+interface VideoFormat {
+  format_id: string;
+  format?: string;
+  format_note?: string;
+  ext?: string;
+  resolution?: string;
+  fps?: number;
+  vcodec?: string;
+  acodec?: string;
+  filesize?: number;
+  filesize_approx?: number;
+}
+
+interface VideoInfo {
+  title: string;
+  thumbnail: string;
+  uploader: string;
+  duration: number;
+  description: string;
+  tags: string[];
+  view_count: number;
+  like_count: number;
+  upload_date: string;
+  categories: string[];
+  webpage_url: string;
+  formats: VideoFormat[];
+}
+
+interface DependencyStatus {
+  ytdlp: boolean;
+  ffmpeg: boolean;
+  ytdlpOutdated: boolean;
+  ytdlpPath?: string;
+  ffmpegPath?: string;
+  ytdlpVersion?: string;
+  latestYtDlpVersion?: string | null;
+  configuredDependencyPath?: string | null;
+}
+
 interface ElectronAPI {
-  getVideoInfo: (url: string) => Promise<any>;
+  getVideoInfo: (url: string) => Promise<VideoInfo>;
   selectFolder: () => Promise<string | null>;
   downloadThumbnail: (data: {
     url: string;
@@ -14,16 +53,7 @@ interface ElectronAPI {
     outputPath: string;
   }) => Promise<{ success: boolean }>;
   cancelDownload: () => Promise<{ success: boolean }>;
-  checkDependencies: () => Promise<{
-    ytdlp: boolean;
-    ffmpeg: boolean;
-    ytdlpOutdated: boolean;
-    ytdlpPath?: string;
-    ffmpegPath?: string;
-    ytdlpVersion?: string;
-    latestYtDlpVersion?: string | null;
-    configuredDependencyPath?: string | null;
-  }>;
+  checkDependencies: () => Promise<DependencyStatus>;
   downloadDependencies: (location: string) => Promise<{
     success: boolean;
     message: string;
@@ -36,3 +66,4 @@ interface ElectronAPI {
 interface Window {
   electronAPI: ElectronAPI;
 }
+

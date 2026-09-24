@@ -7,7 +7,7 @@ Use this checklist before tagging a release or publishing GitHub artifacts.
 - Confirm `package.json` version is correct.
 - Update `CHANGELOG.md` with user-facing changes.
 - Run `npm run check`.
-- Run `npm audit --audit-level=moderate`.
+- Run `npm audit --omit=dev --audit-level=moderate`.
 - Confirm `README.md`, `docs/INSTALL.md`, and `docs/BUILD.md` describe the actual supported platforms.
 - Confirm generated files are not staged: `dist/`, `node_modules/`, logs, caches, `.env` files, and OS metadata.
 - Review dependency and packaging changes for license and security impact.

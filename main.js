@@ -16,13 +16,16 @@ const {
   downloadBinary,
   downloadFile,
   extractArchive,
+  getExecutableCandidates,
   getThumbnailExtension,
   isNewerVersion,
+  isSafeExternalUrl,
   isValidThumbnailUrl,
   isValidYouTubeUrl,
-  normalizeOutputPath,
   prepareDependencyDirectory,
   sanitizeFilename,
+  toError,
+  validateWritableDirectory,
 } = require("./lib/core");
 
 /** @type {Electron.BrowserWindow | null} */
@@ -50,16 +53,20 @@ app.on("ready", () => {
 
 function saveConfig(updates) {
   if (!configFilePath) return;
-  let config = {};
-  if (fs.existsSync(configFilePath)) {
-    try {
-      config = JSON.parse(fs.readFileSync(configFilePath, "utf8"));
-    } catch {
-      /* ignore */
+  try {
+    let config = {};
+    if (fs.existsSync(configFilePath)) {
+      try {
+        config = JSON.parse(fs.readFileSync(configFilePath, "utf8"));
+      } catch {
+        /* ignore */
+      }
     }
+    Object.assign(config, updates);
+    fs.writeFileSync(configFilePath, JSON.stringify(config, null, 2));
+  } catch (error) {
+    console.error("Failed to save config:", error);
   }
-  Object.assign(config, updates);
-  fs.writeFileSync(configFilePath, JSON.stringify(config, null, 2));
 }
 
 function getYtDlpExecutableName() {
@@ -70,68 +77,32 @@ function getFfmpegExecutableName() {
   return process.platform === "win32" ? "ffmpeg.exe" : "ffmpeg";
 }
 
-/**
- * @param {string} executableName
- * @param {string[]} commonPaths
- * @returns {string[]}
- */
-function getExecutableCandidates(executableName, commonPaths) {
-  const candidates = [];
-
-  if (userDependencyPath) {
-    candidates.push(path.join(userDependencyPath, executableName));
-  }
-
-  candidates.push(...commonPaths);
-  candidates.push(executableName);
-
-  return Array.from(new Set(candidates));
-}
-
 function getYtDlpCandidates() {
-  return getExecutableCandidates(getYtDlpExecutableName(), [
-    "/opt/homebrew/bin/yt-dlp", // Apple Silicon Homebrew
-    "/usr/local/bin/yt-dlp", // Intel Homebrew
-    "/usr/bin/yt-dlp", // System install
-    path.join(process.env.HOME || "/tmp", ".local/bin/yt-dlp"), // User install
-  ]);
+  const homeDir = process.env.USERPROFILE || process.env.HOME || "/tmp";
+  return getExecutableCandidates(
+    getYtDlpExecutableName(),
+    [
+      "/opt/homebrew/bin/yt-dlp", // Apple Silicon Homebrew
+      "/usr/local/bin/yt-dlp", // Intel Homebrew
+      "/usr/bin/yt-dlp", // System install
+      path.join(homeDir, ".local/bin/yt-dlp"), // User install
+    ],
+    userDependencyPath,
+  );
 }
 
 function getFfmpegCandidates() {
-  return getExecutableCandidates(getFfmpegExecutableName(), [
-    "/opt/homebrew/bin/ffmpeg",
-    "/usr/local/bin/ffmpeg",
-    "/usr/bin/ffmpeg",
-    path.join(process.env.HOME || "/tmp", ".local/bin/ffmpeg"),
-  ]);
-}
-
-/**
- * @param {unknown} error
- * @param {string} fallback
- * @returns {Error}
- */
-function toError(error, fallback) {
-  if (error instanceof Error) return error;
-
-  if (error && typeof error === "object") {
-    const maybeError = /** @type {{ error?: unknown, message?: unknown, details?: unknown }} */ (
-      error
-    );
-    const message =
-      typeof maybeError.error === "string"
-        ? maybeError.error
-        : typeof maybeError.message === "string"
-          ? maybeError.message
-          : fallback;
-    const details =
-      typeof maybeError.details === "string" && maybeError.details.trim()
-        ? `\n${maybeError.details.trim()}`
-        : "";
-    return new Error(`${message}${details}`);
-  }
-
-  return new Error(fallback);
+  const homeDir = process.env.USERPROFILE || process.env.HOME || "/tmp";
+  return getExecutableCandidates(
+    getFfmpegExecutableName(),
+    [
+      "/opt/homebrew/bin/ffmpeg",
+      "/usr/local/bin/ffmpeg",
+      "/usr/bin/ffmpeg",
+      path.join(homeDir, ".local/bin/ffmpeg"),
+    ],
+    userDependencyPath,
+  );
 }
 
 /**
@@ -233,19 +204,6 @@ function runCommand(command, args) {
   });
 }
 
-/**
- * @param {string} url
- * @returns {boolean}
- */
-function isSafeExternalUrl(url) {
-  try {
-    const parsedUrl = new URL(url);
-    return parsedUrl.protocol === "https:" || parsedUrl.protocol === "http:";
-  } catch {
-    return false;
-  }
-}
-
 // Security: Disable hardware acceleration if needed for compatibility
 // app.disableHardwareAcceleration();
 
@@ -306,11 +264,20 @@ function createWindow() {
 
 app.whenReady().then(createWindow);
 
+app.on("before-quit", () => {
+  activeDownloads.forEach((childProcess) => {
+    if (childProcess && !childProcess.killed) {
+      childProcess.kill("SIGTERM");
+    }
+  });
+  activeDownloads.clear();
+});
+
 app.on("window-all-closed", () => {
   // Clean up any active downloads
   activeDownloads.forEach((process) => {
     if (process && !process.killed) {
-      process.kill();
+      process.kill("SIGTERM");
     }
   });
   activeDownloads.clear();
@@ -466,19 +433,9 @@ ipcMain.handle(
 
       let safePath;
       try {
-        safePath = normalizeOutputPath(outputPath);
+        safePath = await validateWritableDirectory(outputPath);
       } catch (error) {
         throw toError(error, "Invalid output path");
-      }
-
-      try {
-        const stats = await fs.promises.stat(safePath);
-        if (!stats.isDirectory()) {
-          throw new Error("Output path is not a directory");
-        }
-        await fs.promises.access(safePath, fs.constants.W_OK);
-      } catch {
-        throw new Error("Output path is not writable");
       }
 
       destinationPath = path.join(safePath, filename);
@@ -532,21 +489,9 @@ ipcMain.handle(
     // Security: Sanitize and validate output path
     let safePath;
     try {
-      safePath = normalizeOutputPath(outputPath);
+      safePath = await validateWritableDirectory(outputPath);
     } catch (error) {
-      throw new Error(
-        error instanceof Error ? error.message : "Invalid output path",
-      );
-    }
-
-    try {
-      const stats = await fs.promises.stat(safePath);
-      if (!stats.isDirectory()) {
-        throw new Error("Output path is not a directory");
-      }
-      await fs.promises.access(safePath, fs.constants.W_OK);
-    } catch {
-      throw new Error("Output path is not writable");
+      throw toError(error, "Invalid output path");
     }
 
     const ytdlpInfo = await resolveYtDlp();
@@ -604,11 +549,13 @@ ipcMain.handle(
         }
       });
 
-      ytdlp.on("close", (code) => {
+      ytdlp.on("close", (code, signal) => {
         activeDownloads.delete(downloadId);
 
         if (code === 0) {
           resolve({ success: true });
+        } else if (signal === "SIGTERM" || signal === "SIGINT") {
+          reject(new Error("Download was cancelled."));
         } else {
           const details = stderr.trim();
           reject(
@@ -751,14 +698,23 @@ ipcMain.handle("download-dependencies", async (event, location) => {
     /* ignore */
   }
 
-  await downloadBinary(ffUrl, archivePath);
-  await extractArchive(archivePath, dependencyPath, ffFile);
+  try {
+    await downloadBinary(ffUrl, archivePath);
+    await extractArchive(archivePath, dependencyPath, ffFile);
+  } finally {
+    try {
+      if (fs.existsSync(archivePath)) {
+        fs.unlinkSync(archivePath);
+      }
+    } catch {
+      /* ignore */
+    }
+  }
 
-  // Cleanup archive and ensure execute permissions
+  // Ensure execute permissions on extracted binary
   try {
     const ffDest = path.join(dependencyPath, ffFile);
     if (fs.existsSync(ffDest)) fs.chmodSync(ffDest, 0o755);
-    fs.unlinkSync(archivePath);
   } catch {
     /* ignore */
   }
