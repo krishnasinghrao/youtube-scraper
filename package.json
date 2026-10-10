@@ -32,12 +32,12 @@
   "license": "MIT",
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/namans3398/Scraper.git"
+    "url": "git+https://github.com/krishnasinghrao/Scraper.git"
   },
   "bugs": {
-    "url": "https://github.com/namans3398/Scraper/issues"
+    "url": "https://github.com/krishnasinghrao/Scraper/issues"
   },
-  "homepage": "https://github.com/namans3398/Scraper#readme",
+  "homepage": "https://github.com/krishnasinghrao/Scraper#readme",
   "devDependencies": {
     "@eslint/js": "9.39.1",
     "@types/node": "24.10.0",
@@ -48,7 +48,7 @@
     "typescript": "5.9.3"
   },
   "build": {
-    "appId": "com.namans3398.scraper",
+    "appId": "com.krishnasinghrao.scraper",
     "productName": "Scraper",
     "copyright": "Copyright © 2026 Scraper Contributors",
     "directories": {

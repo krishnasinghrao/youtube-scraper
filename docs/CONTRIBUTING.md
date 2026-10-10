@@ -12,7 +12,7 @@ Thanks for helping improve Scraper. Contributions should keep the app secure, fo
 ## Development Setup
 
 ```bash
-git clone https://github.com/namans3398/Scraper.git
+git clone https://github.com/krishnasinghrao/Scraper.git
 cd Scraper
 npm install
 npm start

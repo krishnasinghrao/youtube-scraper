@@ -5,8 +5,8 @@
   </h1>
   <p><strong>A secure, open-source desktop video downloader powered by <code>yt-dlp</code>.</strong></p>
   <p>
-    <a href="https://github.com/namans3398/Scraper/actions/workflows/build.yml">
-      <img src="https://github.com/namans3398/Scraper/actions/workflows/build.yml/badge.svg" alt="Build status">
+    <a href="https://github.com/krishnasinghrao/Scraper/actions/workflows/build.yml">
+      <img src="https://github.com/krishnasinghrao/Scraper/actions/workflows/build.yml/badge.svg" alt="Build status">
     </a>
     <a href="LICENSE">
       <img src="https://img.shields.io/badge/License-MIT-yellow.svg" alt="MIT License">
@@ -75,7 +75,7 @@ brew install yt-dlp ffmpeg
 ## Quick Start
 
 ```bash
-git clone https://github.com/namans3398/Scraper.git
+git clone https://github.com/krishnasinghrao/Scraper.git
 cd Scraper
 npm install
 npm start
@@ -153,10 +153,10 @@ Thanks to everyone who helps build, test, document, and maintain Scraper.
 <table>
   <tr>
     <td align="center">
-      <a href="https://github.com/namans3398">
-        <img src="https://github.com/namans3398.png?size=96" width="96" height="96" alt="Naman Singh Rao">
+      <a href="https://github.com/krishnasinghrao">
+        <img src="https://github.com/krishnasinghrao.png?size=96" width="96" height="96" alt="Krishna Singh Rao">
         <br>
-        <sub><strong>Naman Singh Rao</strong></sub>
+        <sub><strong>Krishna Singh Rao</strong></sub>
       </a>
       <br>
       <sub>Maintainer</sub>
@@ -164,7 +164,7 @@ Thanks to everyone who helps build, test, document, and maintain Scraper.
   </tr>
 </table>
 
-See the full contributor history on the [GitHub contributors page](https://github.com/namans3398/Scraper/graphs/contributors).
+See the full contributor history on the [GitHub contributors page](https://github.com/krishnasinghrao/Scraper/graphs/contributors).
 
 ## License
 

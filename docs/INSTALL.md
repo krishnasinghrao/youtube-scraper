@@ -34,7 +34,7 @@ ffmpeg -version
 ## Run from Source
 
 ```bash
-git clone https://github.com/namans3398/Scraper.git
+git clone https://github.com/krishnasinghrao/Scraper.git
 cd Scraper
 npm install
 npm start
